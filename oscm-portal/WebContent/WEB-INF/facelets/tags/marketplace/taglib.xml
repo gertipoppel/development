@@ -99,6 +99,10 @@
     <source>servicePrice.xhtml</source>
   </tag>
   <tag>
+    <tag-name>servicePriceLink</tag-name>
+    <source>servicePriceLink.xhtml</source>
+  </tag>
+  <tag>
     <tag-name>button</tag-name>
     <source>button.xhtml</source>
   </tag>
@@ -169,5 +173,9 @@
   <tag>
     <tag-name>conversationKeepAlive</tag-name>
     <source>conversationKeepAlive.xhtml</source>
+  </tag>
+  <tag>
+    <tag-name>subscriptionFinder</tag-name>
+    <source>subscriptionFinder.xhtml</source>
   </tag>
 </facelet-taglib>

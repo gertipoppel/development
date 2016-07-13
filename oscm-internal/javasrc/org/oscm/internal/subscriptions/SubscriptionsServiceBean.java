@@ -8,18 +8,15 @@
 
 package org.oscm.internal.subscriptions;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import javax.annotation.security.RolesAllowed;
 import javax.ejb.EJB;
 import javax.ejb.Remote;
 import javax.ejb.Stateless;
 import javax.interceptor.Interceptors;
-import javax.persistence.NoResultException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.oscm.dataservice.local.DataService;
 import org.oscm.domobjects.Organization;
 import org.oscm.domobjects.PlatformUser;
@@ -32,15 +29,18 @@ import org.oscm.i18nservice.bean.LocalizerFacade;
 import org.oscm.i18nservice.local.LocalizerServiceLocal;
 import org.oscm.interceptor.ExceptionMapper;
 import org.oscm.interceptor.InvocationDateContainer;
+import org.oscm.internal.intf.SubscriptionSearchService;
+import org.oscm.internal.types.exception.InvalidPhraseException;
 import org.oscm.logging.Log4jLogger;
 import org.oscm.logging.LoggerFactory;
+import org.oscm.paginator.Pagination;
+import org.oscm.paginator.PaginationFullTextFilter;
 import org.oscm.subscriptionservice.assembler.SubscriptionAssembler;
 import org.oscm.subscriptionservice.local.SubscriptionListServiceLocal;
 import org.oscm.subscriptionservice.local.SubscriptionServiceLocal;
 import org.oscm.internal.assembler.POSubscriptionAndCustomerAssembler;
 import org.oscm.internal.components.response.Response;
 import org.oscm.internal.intf.SubscriptionService;
-import org.oscm.internal.tables.Pagination;
 import org.oscm.internal.types.enumtypes.ServiceAccessType;
 import org.oscm.internal.types.enumtypes.SubscriptionStatus;
 import org.oscm.internal.types.exception.ObjectNotFoundException;
@@ -76,6 +76,9 @@ public class SubscriptionsServiceBean implements SubscriptionsService {
 
     @EJB(beanInterface = SubscriptionServiceLocal.class)
     SubscriptionServiceLocal subscriptionServiceLocal;
+
+    @EJB
+    public SubscriptionSearchService subscriptionSearchService;
 
     @Override
     @RolesAllowed({ "ORGANIZATION_ADMIN", "SUBSCRIPTION_MANAGER" })
@@ -214,6 +217,24 @@ public class SubscriptionsServiceBean implements SubscriptionsService {
         return new Response(result);
     }
 
+    @Override
+    public Response getSubscriptionsForOrgWithFiltering(Set<SubscriptionStatus> states, PaginationFullTextFilter pagination)
+            throws OrganizationAuthoritiesException {
+        List<Subscription> subscriptions = getSubscriptionsForOrgWithFilteringFromLocalService(states, pagination);
+        List<POSubscriptionForList> result = localize(subscriptions);
+        return new Response(result);
+    }
+
+    /**
+     * Implementation of method which should return set of Long object, which represents subscriptions retunred
+     * in full text search process
+     * @param filterValue Text enetered by user to filter subscriptions by
+     * @return Set of primary keys of subscriptions which are valid against the filter value or empty (not null!) set.
+     */
+    private Collection<Long> getFilteredOutSubscriptionKeys(String filterValue) throws InvalidPhraseException, ObjectNotFoundException {
+        return subscriptionSearchService.searchSubscriptions(filterValue);
+    }
+
     /**
      * @param subscriptions
      * @return
@@ -236,12 +257,46 @@ public class SubscriptionsServiceBean implements SubscriptionsService {
                 states, pagination).size());
     }
 
+    @Override
+    @RolesAllowed({ "ORGANIZATION_ADMIN", "SUBSCRIPTION_MANAGER",
+            "UNIT_ADMINISTRATOR" })
+    public Integer getSubscriptionsForOrgSizeWithFiltering(Set<SubscriptionStatus> states,
+                                                           PaginationFullTextFilter pagination) throws OrganizationAuthoritiesException {
+        List<Subscription> subscriptions = getSubscriptionsForOrgWithFilteringFromLocalService(states, pagination);
+        return Integer.valueOf(subscriptions.size());
+    }
+
+    private List<Subscription> getSubscriptionsForOrgWithFilteringFromLocalService(Set<SubscriptionStatus> states, PaginationFullTextFilter pagination) throws OrganizationAuthoritiesException {
+        List<Subscription> subscriptions = Collections.emptyList();
+        if (StringUtils.isNotEmpty(pagination.getFullTextFilterValue())) {
+            String fullTextFilterValue = pagination.getFullTextFilterValue();
+            Collection<Long> subscriptionKeys = Collections.emptySet();
+            try {
+                subscriptionKeys = getFilteredOutSubscriptionKeys(fullTextFilterValue);
+            } catch (InvalidPhraseException e) {
+                logger.logError(Log4jLogger.SYSTEM_LOG, e, LogMessageIdentifier.ERROR);
+            } catch (ObjectNotFoundException e) {
+                logger.logDebug("No subscription keys found");
+            }
+            if (!subscriptionKeys.isEmpty()) {
+                subscriptions = slService.getSubscriptionsForOrganizationWithFiltering(states, pagination, subscriptionKeys);
+            }
+        } else {
+            subscriptions = slService.getSubscriptionsForOrganization(states, pagination);
+        }
+        return subscriptions;
+    }
 
     @Override
-    public Response getMySubscriptions(Pagination pagination) throws OrganizationAuthoritiesException {
-        List<Subscription> mySubscriptions = subscriptionServiceLocal.getSubscriptionsForCurrentUser(pagination);
+    public Response getMySubscriptionsWithFiltering(PaginationFullTextFilter pagination) throws OrganizationAuthoritiesException {
+        List<Subscription> mySubscriptions = subscriptionServiceLocal.getSubscriptionsForCurrentUserWithFiltering(pagination);
         List<POSubscription> result = toPOUserSubscriptionList(mySubscriptions);
         return new Response(result);
+    }
+
+    @Override
+    public Integer getMySubscriptionsSizeWithFiltering(PaginationFullTextFilter pagination) throws OrganizationAuthoritiesException {
+        return subscriptionServiceLocal.getSubscriptionsForCurrentUserWithFiltering(pagination).size();
     }
 
     private List<POSubscription> toPOUserSubscriptionList(List<Subscription> subs) {
@@ -257,25 +312,6 @@ public class SubscriptionsServiceBean implements SubscriptionsService {
     }
 
     @Override
-    @SuppressWarnings("boxing")
-    public Integer getMySubscriptionsSize(Pagination pagination) throws OrganizationAuthoritiesException {
-        return subscriptionServiceLocal.getSubscriptionsForCurrentUser(pagination).size();
-    }
-
-	@Override
-	public boolean isSubscriptionVisible(long subscriptionKey) {
-
-		try {
-			Subscription subscription = subscriptionServiceLocal
-					.loadSubscription(subscriptionKey);
-			return Subscription.VISIBLE_SUBSCRIPTION_STATUS
-					.contains(subscription.getStatus());
-		} catch (ObjectNotFoundException e) {
-			return false;
-		}
-	}
-
-    @Override
     public VOSubscriptionDetails getSubscriptionDetails(long subscriptionKey) throws ObjectNotFoundException {
         Subscription subscription = subscriptionServiceLocal
                 .loadSubscription(subscriptionKey);
@@ -285,14 +321,6 @@ public class SubscriptionsServiceBean implements SubscriptionsService {
         return SubscriptionAssembler.toVOSubscriptionDetails(subscription,
                 facade);
     }
-
-	@Override
-	public boolean isCurrentUserAssignedToSubscription(long subscriptionKey) {
-
-		UsageLicense usageLicense = subscriptionServiceLocal
-				.getSubscriptionUsageLicense(dm.getCurrentUser(), Long.valueOf(subscriptionKey));
-		return usageLicense != null;
-	}
 
     @Override
     public POSubscription getMySubscriptionDetails(long key) {

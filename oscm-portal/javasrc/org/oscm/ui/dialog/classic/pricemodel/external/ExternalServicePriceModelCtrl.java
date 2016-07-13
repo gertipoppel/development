@@ -1,8 +1,8 @@
 /*******************************************************************************
  *                                                                              
- *  COPYRIGHT (C) 2015 FUJITSU Limited - ALL RIGHTS RESERVED.                  
- *                                                                                                                                 
- *  Creation Date: 24.02.2015                                                      
+ *  Copyright FUJITSU LIMITED 2016                                             
+ *                                                                              
+ *  Creation Date: 20.04.2015                                                      
  *                                                                              
  *******************************************************************************/
 
@@ -19,20 +19,23 @@ import org.oscm.internal.vo.VOServiceDetails;
 
 /**
  * @author iversen
- *
+ * 
  */
 @ManagedBean
 @ViewScoped
 public class ExternalServicePriceModelCtrl extends ExternalPriceModelCtrl {
-    
+
     public void initBean(VOServiceDetails selectedService) {
         initPersistedPriceModel(ServiceType.TEMPLATE, selectedService);
     }
-    
+
     public void upload(VOServiceDetails service) {
         try {
             PriceModel priceModel = getExternalPriceModelService()
                     .getExternalPriceModelForService(service);
+            if (priceModel == null) {
+                throw new ExternalPriceModelException();
+            }
             loadPriceModelContent(priceModel);
 
             addMessage(null, FacesMessage.SEVERITY_INFO,
@@ -42,9 +45,9 @@ public class ExternalServicePriceModelCtrl extends ExternalPriceModelCtrl {
                     ERROR_EXTERNAL_PRICEMODEL_NOT_AVAILABLE);
         }
     }
-    
+
     public void reloadPriceModel(VOServiceDetails selectedService) {
         reloadPriceModel(ServiceType.TEMPLATE, selectedService);
     }
-    
+
 }

@@ -10,14 +10,16 @@ package org.oscm.internal.subscriptions;
 
 import java.util.Set;
 
+import javax.annotation.security.RolesAllowed;
 import javax.ejb.Remote;
 
 import org.oscm.internal.components.response.Response;
-import org.oscm.internal.tables.Pagination;
 import org.oscm.internal.types.enumtypes.SubscriptionStatus;
 import org.oscm.internal.types.exception.ObjectNotFoundException;
 import org.oscm.internal.types.exception.OrganizationAuthoritiesException;
 import org.oscm.internal.vo.VOSubscriptionDetails;
+import org.oscm.paginator.Pagination;
+import org.oscm.paginator.PaginationFullTextFilter;
 
 /**
  * @author tokoda
@@ -69,20 +71,24 @@ public interface SubscriptionsService {
     Response getSubscriptionsForOrg(Set<SubscriptionStatus> states, Pagination pagination)
             throws OrganizationAuthoritiesException;
 
-    Response getMySubscriptions(Pagination pagination) throws OrganizationAuthoritiesException;
+    @RolesAllowed({ "ORGANIZATION_ADMIN", "SUBSCRIPTION_MANAGER",
+            "UNIT_ADMINISTRATOR" })
+    Integer getSubscriptionsForOrgSizeWithFiltering(Set<SubscriptionStatus> states,
+                                                    PaginationFullTextFilter pagination) throws OrganizationAuthoritiesException;
 
     Integer getSubscriptionsAndCustomersForManagersSize(Pagination pagination) throws OrganizationAuthoritiesException;
+
+    Response getSubscriptionsForOrgWithFiltering(Set<SubscriptionStatus> states, PaginationFullTextFilter pagination)
+            throws OrganizationAuthoritiesException;
 
     Integer getSubscriptionsForOrgSize(Set<SubscriptionStatus> states, Pagination pagination)
             throws OrganizationAuthoritiesException;
 
-    Integer getMySubscriptionsSize(Pagination pagination) throws OrganizationAuthoritiesException;
-    
-    boolean isSubscriptionVisible(long subscriptionKey);
+    Response getMySubscriptionsWithFiltering(PaginationFullTextFilter pagination) throws OrganizationAuthoritiesException;
+
+    Integer getMySubscriptionsSizeWithFiltering(PaginationFullTextFilter pagination) throws OrganizationAuthoritiesException;
 
     VOSubscriptionDetails getSubscriptionDetails(long subscriptionKey) throws ObjectNotFoundException;
-
-    boolean isCurrentUserAssignedToSubscription(long subscriptionKey);
 
     POSubscription getMySubscriptionDetails(long key);
 }

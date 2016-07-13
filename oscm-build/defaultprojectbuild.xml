@@ -29,8 +29,10 @@
     <condition property="bss.java.home.dir" value="${bss.java.home}/jre" else="${env.JAVA_HOME}/jre">
       <isset property="bss.java.home" />
     </condition>
+    
     <!-- Read properties from Eclipse project files -->
-    <dependencyproperties workspacedir="${workspace.dir}" resultdir="${result.dir}" projectdir="${project.dir}" />
+    <property name="dependency.resolver.dir" location="${workspace.dir}" />
+    <dependencyproperties workspacedir="${dependency.resolver.dir}" resultdir="${result.dir}" projectdir="${project.dir}" />
 
     <!-- Project source and result locations -->
     <property name="javasrc.dir" location="${project.dir}/javasrc" />
@@ -242,6 +244,7 @@
         <jvmarg value="-agentlib:jdwp=transport=dt_socket,server=y,address=8038,suspend=y" /-->
         <classpath refid="dependencies.runtime.path" />
         <formatter type="xml" />
+        <formatter type="plain" usefile="false"/>
         <batchtest todir="${result.work.testreport.dir}">
           <fileset dir="${javasrc.dir}">
             <include name="**/*Test.java" />
@@ -263,6 +266,7 @@
       <jvmarg value="-agentlib:jdwp=transport=dt_socket,server=y,address=8038,suspend=y" /-->
       <classpath refid="dependencies.runtime.path" />
       <formatter type="xml" />
+      <formatter type="plain" usefile="false"/>
       <batchtest todir="${result.work.testreport.dir}">
         <fileset dir="${javasrc.dir}">
           <include name="**/*Test.java" />

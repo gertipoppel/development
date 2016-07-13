@@ -8,7 +8,11 @@
 
 package org.oscm.paginator;
 
+import org.oscm.internal.types.enumtypes.SubscriptionStatus;
+
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -22,8 +26,10 @@ public class Pagination implements Serializable, PaginationInt {
     private Sorting sorting;
     private Set<Filter> filterSet;
     private String dateFormat;
+    private Map<SubscriptionStatus, String> localizedStatusesMap;
 
     public Pagination() {
+        localizedStatusesMap = new HashMap<>();
     }
 
     public Pagination(int offset, int limit) {
@@ -70,6 +76,10 @@ public class Pagination implements Serializable, PaginationInt {
 
     public void setDateFormat(String dateFormat) {
         this.dateFormat = dateFormat;
+    }
+
+    public Map<SubscriptionStatus, String> getLocalizedStatusesMap() {
+        return localizedStatusesMap;
     }
 
 }

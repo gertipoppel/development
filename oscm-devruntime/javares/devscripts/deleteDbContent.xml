@@ -106,6 +106,7 @@
   <CatalogEntryHistory />
   <Marketplace />
   <MarketplaceHistory />
+  <MarketplaceAccess />
   <Tag />
   <TechnicalProductTag />
   <UserRole />
