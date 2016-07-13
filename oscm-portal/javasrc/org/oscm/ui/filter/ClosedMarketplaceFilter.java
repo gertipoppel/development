@@ -20,6 +20,7 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.oscm.internal.intf.ConfigurationService;
 import org.oscm.internal.intf.IdentityService;
 import org.oscm.internal.intf.MarketplaceService;
 import org.oscm.internal.types.exception.ObjectNotFoundException;
@@ -33,12 +34,15 @@ import org.oscm.ui.common.*;
  * @author Paulina Badziak
  *
  */
-public class ClosedMarketplaceFilter implements Filter {
+public class ClosedMarketplaceFilter extends BaseBesFilter implements Filter {
+
+    private final String samlSpRedirectPage = "/saml2/redirectToIdp.jsf";
 
     RequestRedirector redirector;
     String excludeUrlPattern;
     MarketplaceService marketplaceService;
     IdentityService identityService;
+    ServiceAccess serviceAccess;
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -46,7 +50,7 @@ public class ClosedMarketplaceFilter implements Filter {
         excludeUrlPattern = filterConfig
                 .getInitParameter("exclude-url-pattern");
 
-        ServiceAccess serviceAccess = new EJBServiceAccess();
+        serviceAccess = getServiceAccess();
         marketplaceService = serviceAccess.getService(MarketplaceService.class);
         identityService = serviceAccess.getService(IdentityService.class);
     }
@@ -67,11 +71,19 @@ public class ClosedMarketplaceFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         if (!httpRequest.getServletPath().matches(excludeUrlPattern)) {
-            String mId = (String) httpRequest.getSession()
-                    .getAttribute(Constants.REQ_PARAM_MARKETPLACE_ID);
-
+            String mId = httpRequest
+                    .getParameter(Constants.REQ_PARAM_MARKETPLACE_ID);
             if (mId == null || mId.equals("")) {
-                chain.doFilter(request, response);
+                mId = (String) httpRequest.getSession()
+                        .getAttribute(Constants.REQ_PARAM_MARKETPLACE_ID);
+            }
+            if (mId == null || mId.equals("")) {
+                if (isSAMLAuthentication()) {
+                    redirector.forward(httpRequest, httpResponse,
+                            samlSpRedirectPage);
+                } else {
+                    chain.doFilter(request, response);
+                }
                 return;
             }
 
@@ -96,8 +108,13 @@ public class ClosedMarketplaceFilter implements Filter {
                         }
                     }
                     if (voMarketplace.isHasPublicLandingPage()) {
-                        redirector.forward(httpRequest, httpResponse,
-                            BaseBean.MARKETPLACE_START_SITE);
+                        if (isSAMLAuthentication()) {
+                            redirector.forward(httpRequest, httpResponse,
+                                    samlSpRedirectPage);
+                        } else {
+                            redirector.forward(httpRequest, httpResponse,
+                                    BaseBean.MARKETPLACE_START_SITE);
+                        }
                         return;
                     }
                 }
@@ -109,6 +126,20 @@ public class ClosedMarketplaceFilter implements Filter {
             }
         }
         chain.doFilter(request, response);
+    }
+
+    boolean isSAMLAuthentication() {
+        ConfigurationService cfgService = getServiceAccess()
+                .getService(ConfigurationService.class);
+        authSettings = new AuthenticationSettings(cfgService);
+        return authSettings.isServiceProvider();
+    }
+
+    private ServiceAccess getServiceAccess() {
+        if (serviceAccess != null) {
+            return serviceAccess;
+        }
+        return new EJBServiceAccess();
     }
 
     @Override
