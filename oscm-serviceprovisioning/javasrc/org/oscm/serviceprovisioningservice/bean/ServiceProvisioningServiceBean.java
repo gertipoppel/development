@@ -6,6 +6,7 @@ package org.oscm.serviceprovisioningservice.bean;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1742,7 +1743,7 @@ public class ServiceProvisioningServiceBean
             PlatformUser currentUser, TechnicalProduct tProd, Product product,
             boolean isCreation) throws ObjectNotFoundException,
                     OperationNotPermittedException, ValidationException,
-                    ConcurrentModificationException {
+                    ConcurrentModificationException{
         boolean isDirectAccess = tProd
                 .getAccessType() == ServiceAccessType.DIRECT;
         List<VOParameter> parameters = productToModify.getParameters();
